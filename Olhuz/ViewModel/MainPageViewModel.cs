@@ -25,7 +25,7 @@ namespace Olhuz.ViewModel
         private async Task OnRegister()
         {
             // Vai para a página RegisterPage
-            await Shell.Current.GoToAsync(nameof(Olhuz.ViewModel.));
+            //await Shell.Current.GoToAsync(nameof(Olhuz.ViewModel.));
         }
     }
 }

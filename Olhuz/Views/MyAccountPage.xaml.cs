@@ -21,7 +21,7 @@ namespace Olhuz.Views
             var user = new
             {
                 FullName = "Maria Oliveira",
-                BirthDate = new DateOnly(1995, 05, 20),
+                BirthDate = new DateTime(995, 05, 20),
                 Email = "maria.oliveira@exemplo.com"
             };
 
