@@ -1,255 +1,251 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.Maui.Controls;
 
 namespace Olhuz.ViewModel
 {
-       public partial class SettingsPage : ContentPage
+    public partial class SettingsPage : ContentPage
     {
-        // Variáveis de estado do Controller (simulando o Model)
+        // Variáveis (Model Fake)
         private bool _isScreenReaderEnabled = true;
         private double _speechSpeed = 1.0;
         private string _voiceType = "Masculino";
-        private string _currentTheme = "Claro"; // Claro, Escuro
+        private string _currentTheme = "Claro";
 
-        // Cores para destacar o botão ativo - Serão carregadas dos recursos
+        // Cores
         private Color _activeButtonColor;
         private Color _inactiveButtonColor;
-        // NOVAS VARIÁVEIS para cores de texto baseadas na sua regra
-        private Color _activeTextColor = Colors.White; // Cor do texto para botão ativo (Fundo SevenBlue)
-        private Color _inactiveTextColor; // Cor do texto para botão inativo (Fundo Gray100, Texto SevenBlue)
+        private Color _activeTextColor = Colors.White;
+        private Color _inactiveTextColor;
+
+        // === CONTROLES CRIADOS VIA C# ===
+        private Switch ScreenReaderSwitch;
+        private Slider VolumeSlider;
+        private HorizontalStackLayout SpeedButtonsLayout;
+        private HorizontalStackLayout VoiceTypeButtonsLayout;
+        private HorizontalStackLayout ThemeButtonsLayout;
 
         public SettingsPage()
         {
-            InitializeComponent();
-
-            // Define o Title da página
             Title = "Configurações";
 
-            // Chamada para carregar as cores dos recursos XAML antes de aplicar as configurações
             LoadButtonColorsFromResources();
-
-            // Carrega e aplica as configurações iniciais do "Model"
+            BuildUI(); // ← Criamos toda tela aqui
             LoadCurrentSettings();
         }
 
-        /// <summary>
-        /// Tenta carregar as cores de destaque dos botões a partir do dicionário de recursos XAML
-        /// usando as chaves "SevenBlue" e "Gray100".
-        /// </summary>
+        // ====================================================================
+        // CONSTRUÇÃO DA UI SEM XAML
+        // ====================================================================
+        private void BuildUI()
+        {
+            // === Switch Reader ===
+            ScreenReaderSwitch = new Switch();
+            ScreenReaderSwitch.Toggled += OnScreenReaderToggled;
+
+            // === Volume ===
+            VolumeSlider = new Slider { Minimum = 0, Maximum = 1 };
+            VolumeSlider.ValueChanged += OnVolumeSliderValueChanged;
+
+            // === Botões de velocidade ===
+            SpeedButtonsLayout = new HorizontalStackLayout { Spacing = 10 };
+            SpeedButtonsLayout.Children.Add(BuildSpeedButton("0.5x", "0.5"));
+            SpeedButtonsLayout.Children.Add(BuildSpeedButton("1.0x", "1.0"));
+            SpeedButtonsLayout.Children.Add(BuildSpeedButton("1.5x", "1.5"));
+            SpeedButtonsLayout.Children.Add(BuildSpeedButton("2.0x", "2.0"));
+
+            // === Botões de tipo de voz ===
+            VoiceTypeButtonsLayout = new HorizontalStackLayout { Spacing = 10 };
+            VoiceTypeButtonsLayout.Children.Add(BuildVoiceButton("Masculino"));
+            VoiceTypeButtonsLayout.Children.Add(BuildVoiceButton("Feminino"));
+
+            // === Botões de tema ===
+            ThemeButtonsLayout = new HorizontalStackLayout { Spacing = 10 };
+            ThemeButtonsLayout.Children.Add(BuildThemeButton("Claro"));
+            ThemeButtonsLayout.Children.Add(BuildThemeButton("Escuro"));
+
+            Content = new ScrollView
+            {
+                Content = new VerticalStackLayout
+                {
+                    Padding = 20,
+                    Spacing = 20,
+                    Children =
+                    {
+                        new Label { Text = "Leitor de Tela:" },
+                        ScreenReaderSwitch,
+
+                        new Label { Text = "Velocidade da Fala:" },
+                        SpeedButtonsLayout,
+
+                        new Label { Text = "Tipo de Voz:" },
+                        VoiceTypeButtonsLayout,
+
+                        new Label { Text = "Volume:" },
+                        VolumeSlider,
+
+                        new Label { Text = "Tema:" },
+                        ThemeButtonsLayout
+                    }
+                }
+            };
+        }
+
+        // ====================================================================
+        // FACTORY DE BOTÕES
+        // ====================================================================
+        private Button BuildSpeedButton(string text, string speed)
+        {
+            return new Button
+            {
+                Text = text,
+                CommandParameter = speed
+            }.Apply(btn => btn.Clicked += OnSpeechSpeedClicked);
+        }
+
+        private Button BuildVoiceButton(string voice)
+        {
+            return new Button
+            {
+                Text = voice,
+                CommandParameter = voice
+            }.Apply(btn => btn.Clicked += OnVoiceTypeClicked);
+        }
+
+        private Button BuildThemeButton(string theme)
+        {
+            return new Button
+            {
+                Text = theme,
+                CommandParameter = theme
+            }.Apply(btn => btn.Clicked += OnThemeClicked);
+        }
+
+        // ====================================================================
+        // CORES
+        // ====================================================================
         private void LoadButtonColorsFromResources()
         {
-            // 1. Cor para o fundo ATIVO (SevenBlue) e Cor do texto INATIVO
             _activeButtonColor = GetResourceColor("SevenBlue", Color.FromArgb("#007AFF"));
-            _inactiveTextColor = _activeButtonColor; // O texto INATIVO deve ser SevenBlue
-
-            // 2. Cor para o fundo INATIVO (White)
             _inactiveButtonColor = Colors.White;
 
-            // 3. Cor do texto ATIVO (White, já definido como padrão no campo, mas para clareza):
+            _inactiveTextColor = _activeButtonColor;
             _activeTextColor = Colors.White;
         }
 
-        /// Método auxiliar para carregar uma cor pelo seu x:Key no ResourceDictionary.
         private Color GetResourceColor(string key, Color defaultColor)
         {
-            if (Application.Current.Resources.TryGetValue(key, out object resourceValue) && resourceValue is Color color)
+            if (Application.Current.Resources.TryGetValue(key, out object resourceValue)
+                && resourceValue is Color color)
             {
                 return color;
             }
-            // Se a chave não for encontrada ou o valor não for uma cor, retorna o padrão.
             return defaultColor;
         }
 
-        // Simula o carregamento das configurações salvas (do Model/Preferências)
+        // ====================================================================
+        // CARREGAMENTO INICIAL
+        // ====================================================================
         private void LoadCurrentSettings()
         {
-            // Na aplicação real, estas variáveis seriam carregadas de um armazenamento persistente (e.g., Preferences, Banco de Dados).
-
-            // Aplica os valores na View
             ScreenReaderSwitch.IsToggled = _isScreenReaderEnabled;
-            VolumeSlider.Value = 0.5; // Valor inicial do Slider (0.0 a 1.0)
+            VolumeSlider.Value = 0.5;
 
-            // Atualiza o estado visual da View
             UpdateSpeechSpeedButtons(_speechSpeed);
             UpdateVoiceTypeButtons(_voiceType);
             UpdateThemeButtons(_currentTheme);
         }
 
         // ====================================================================
-        // GESTÃO DE EVENTOS DA VIEW
+        // EVENTOS
         // ====================================================================
-
-        // 1. Leitura de Tela (SWITCH)
         private void OnScreenReaderToggled(object sender, ToggledEventArgs e)
         {
             _isScreenReaderEnabled = e.Value;
-
-            // Salvar _isScreenReaderEnabled no Model/Preferências
-
         }
 
-        // 2. Velocidade da Fala (BOTÕES)
         private void OnSpeechSpeedClicked(object sender, EventArgs e)
         {
-            if (sender is Button button && button.CommandParameter is string speedString)
+            if (sender is Button btn &&
+                double.TryParse(btn.CommandParameter.ToString(), out double speed))
             {
-                if (double.TryParse(speedString, out double newSpeed))
-                {
-                    _speechSpeed = newSpeed;
-
-                    // Salvar _speechSpeed no Model/Preferências
-
-                    UpdateSpeechSpeedButtons(newSpeed);
-                }
+                _speechSpeed = speed;
+                UpdateSpeechSpeedButtons(speed);
             }
         }
 
-        // 3. Tipo de Voz (BOTÕES)
         private void OnVoiceTypeClicked(object sender, EventArgs e)
         {
-            if (sender is Button button && button.CommandParameter is string newVoice)
+            if (sender is Button btn)
             {
-                _voiceType = newVoice;
-
-                // Salvar _voiceType no Model/Preferências
-
-                UpdateVoiceTypeButtons(newVoice);
+                _voiceType = btn.CommandParameter.ToString();
+                UpdateVoiceTypeButtons(_voiceType);
             }
         }
 
-        // 4. Volume (SLIDER e +/- BOTÕES)
         private void OnVolumeSliderValueChanged(object sender, ValueChangedEventArgs e)
         {
-            // O volume é atualizado continuamente pelo slider
-            double newVolume = e.NewValue;
-
-            // Salvar o valor do volume (newVolume) no Model/Preferências
-
-            // Console.WriteLine($"Volume ajustado para: {newVolume:P0}"); // Imprime percentual
+            // nada especial aqui
         }
 
-        private void OnVolumeClicked(object sender, EventArgs e)
-        {
-            if (sender is Button button && button.CommandParameter is string direction)
-            {
-                double step = 0.1; // Ajuste em 10%
-                double currentVolume = VolumeSlider.Value;
-
-                if (direction == "Up")
-                {
-                    VolumeSlider.Value = Math.Min(1.0, currentVolume + step);
-                }
-                else if (direction == "Down")
-                {
-                    VolumeSlider.Value = Math.Max(0.0, currentVolume - step);
-                }
-
-                // O evento ValueChanged do Slider tratará o salvamento.
-            }
-        }
-
-        // 5. Modo de Exibição (BOTÕES)
         private void OnThemeClicked(object sender, EventArgs e)
         {
-            if (sender is Button button && button.CommandParameter is string newTheme)
+            if (sender is Button btn)
             {
-                _currentTheme = newTheme;
-
-                // Chamar o serviço de tema do MAUI para mudar o Application.Current.UserAppTheme
-
-                UpdateThemeButtons(newTheme);
+                _currentTheme = btn.CommandParameter.ToString();
+                UpdateThemeButtons(_currentTheme);
             }
         }
 
         // ====================================================================
-        // ATUALIZAÇÕES VISUAIS AUXILIARES (Controller manipula a View)
+        // ATUALIZAÇÃO VISUAL
         // ====================================================================
-
-        // Destaca o botão de velocidade ativo
         private void UpdateSpeechSpeedButtons(double activeSpeed)
         {
-            // Usa a referência direta ao elemento nomeado no XAML (SpeedButtonsLayout)
-            var layout = SpeedButtonsLayout;
-
-            if (layout == null) return;
-
-            foreach (var child in layout.Children)
+            foreach (var child in SpeedButtonsLayout.Children)
             {
-                if (child is Button button && button.Text.EndsWith("x"))
+                if (child is Button btn &&
+                    double.TryParse(btn.CommandParameter.ToString(), out double speed))
                 {
-                    if (double.TryParse(button.CommandParameter as string, out double buttonSpeed) && buttonSpeed == activeSpeed)
-                    {
-                        // ESTADO ATIVO: Fundo SevenBlue, Texto White
-                        button.BackgroundColor = _activeButtonColor;
-                        button.TextColor = _activeTextColor;
-                    }
-                    else
-                    {
-                        // ESTADO INATIVO: Fundo White, Texto SevenBlue
-                        button.BackgroundColor = _inactiveButtonColor;
-                        button.TextColor = _inactiveTextColor;
-                    }
+                    ApplyButtonState(btn, speed == activeSpeed);
                 }
             }
         }
 
-        // Destaca o botão de tipo de voz ativo
         private void UpdateVoiceTypeButtons(string activeVoice)
         {
-            // Usa a referência direta ao elemento nomeado no XAML (VoiceTypeButtonsLayout)
-            var layout = VoiceTypeButtonsLayout;
-
-            if (layout == null) return;
-
-            foreach (var child in layout.Children)
+            foreach (var child in VoiceTypeButtonsLayout.Children)
             {
-                if (child is Button button)
+                if (child is Button btn)
                 {
-                    if (button.Text == activeVoice)
-                    {
-                        // ESTADO ATIVO: Fundo SevenBlue, Texto White
-                        button.BackgroundColor = _activeButtonColor;
-                        button.TextColor = _activeTextColor;
-                    }
-                    else
-                    {
-                        // ESTADO INATIVO: Fundo White, Texto SevenBlue
-                        button.BackgroundColor = _inactiveButtonColor;
-                        button.TextColor = _inactiveTextColor;
-                    }
+                    ApplyButtonState(btn, btn.CommandParameter.ToString() == activeVoice);
                 }
             }
         }
 
-        // Destaca o botão de tema ativo
         private void UpdateThemeButtons(string activeTheme)
         {
-            // Usa a referência direta ao elemento nomeado no XAML (ThemeButtonsLayout)
-            var layout = ThemeButtonsLayout;
-
-            if (layout == null) return;
-
-            foreach (var child in layout.Children)
+            foreach (var child in ThemeButtonsLayout.Children)
             {
-                if (child is Button button)
+                if (child is Button btn)
                 {
-                    if (button.Text == activeTheme)
-                    {
-                        // ESTADO ATIVO: Fundo SevenBlue, Texto White
-                        button.BackgroundColor = _activeButtonColor;
-                        button.TextColor = _activeTextColor;
-                    }
-                    else
-                    {
-                        // ESTADO INATIVO: Fundo White, Texto SevenBlue
-                        button.BackgroundColor = _inactiveButtonColor;
-                        button.TextColor = _inactiveTextColor;
-                    }
+                    ApplyButtonState(btn, btn.CommandParameter.ToString() == activeTheme);
                 }
             }
+        }
+
+        private void ApplyButtonState(Button btn, bool active)
+        {
+            btn.BackgroundColor = active ? _activeButtonColor : _inactiveButtonColor;
+            btn.TextColor = active ? _activeTextColor : _inactiveTextColor;
+        }
+    }
+
+    // Extensão útil
+    public static class ObjectExtensions
+    {
+        public static T Apply<T>(this T obj, Action<T> action)
+        {
+            action(obj);
+            return obj;
         }
     }
 }
